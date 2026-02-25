@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { RedisModule } from './config/redis.module';
 import { QueueModule } from './config/queue.module';
+import { PrismaModule } from './config/prisma.module';
 import { AppConfigService } from './config/app-config.service';
 import { validationSchema } from './config/env.validation';
 import { HealthModule } from './common/health/health.module';
@@ -44,6 +45,8 @@ import { HealthModule } from './common/health/health.module';
     // Redis and Queue modules
     RedisModule,
     QueueModule,
+    // Database module
+    PrismaModule,
     // Health check module
     HealthModule,
   ],

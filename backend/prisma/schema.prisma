@@ -1,14 +1,226 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// XROH Backend Database Schema
+// PostgreSQL schema with Prisma ORM
 
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+// ============================================
+// ROUTES TABLE
+// ============================================
+model Route {
+  id String @id @default(uuid())
+
+  // Provider & Chain Info
+  provider          String // lifi, mayan, changenow
+  source_chain      String
+  destination_chain String
+  source_token      String
+  destination_token String
+
+  // Amounts
+  input_amount  String // Stored as string to avoid precision loss
+  output_amount String
+
+  // Fees & Timing
+  total_fee      Json // RouteFee object
+  estimated_time Int // seconds
+
+  // Risk Metrics
+  slippage_tolerance Float
+  slippage_risk      String // low, medium, high
+  reliability_score  Float
+  liquidity_score    Float
+
+  // Route Steps
+  steps Json // RouteStep[]
+
+  // Raw Provider Data
+  raw_provider_data Json
+
+  // Status & Timestamps
+  status     String   @default("quote_ready") // RouteStatus enum
+  created_at DateTime @default(now())
+  expires_at DateTime
+
+  // Relations
+  executions Execution[]
+
+  @@index([provider, source_chain, destination_chain])
+  @@index([status, expires_at])
+  @@index([created_at])
+  @@map("routes")
+}
+
+// ============================================
+// EXECUTIONS TABLE
+// ============================================
+model Execution {
+  id       String @id @default(uuid())
+  route_id String
+
+  // User Info
+  user_wallet String
+
+  // Transaction Details
+  transaction_hash String? @unique
+  status           String  @default("awaiting_signature") // TransactionStatus enum
+
+  // Expected vs Actual
+  expected_output String
+  expected_time   Int
+  expected_fee    String
+  actual_output   String?
+  actual_time     Int?
+  actual_fee      String?
+
+  // Failure & Retry
+  failure_reason     String?
+  failover_attempted Boolean @default(false)
+  retry_count        Int     @default(0)
+
+  // Timestamps
+  created_at   DateTime  @default(now())
+  started_at   DateTime?
+  completed_at DateTime?
+
+  // Relations
+  route             Route             @relation(fields: [route_id], references: [id])
+  failover_attempts FailoverAttempt[]
+
+  @@index([route_id])
+  @@index([user_wallet])
+  @@index([status, created_at])
+  @@index([transaction_hash])
+  @@map("executions")
+}
+
+// ============================================
+// PROVIDER RELIABILITY TABLE
+// ============================================
+model ProviderReliability {
+  id       String @id @default(uuid())
+  provider String @unique
+
+  // Success Metrics
+  total_executions      Int   @default(0)
+  successful_executions Int   @default(0)
+  failed_executions     Int   @default(0)
+  success_rate          Float @default(0)
+
+  // Performance Metrics
+  average_execution_time Float @default(0) // seconds
+  average_slippage       Float @default(0) // percentage
+  uptime_percentage      Float @default(100)
+
+  // Recent Activity
+  last_success_at      DateTime?
+  last_failure_at      DateTime?
+  consecutive_failures Int       @default(0)
+
+  // Health Status
+  is_healthy               Boolean  @default(true)
+  health_check_last_run    DateTime @default(now())
+  average_response_time_ms Float    @default(0)
+
+  // Timestamps
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([provider, is_healthy])
+  @@index([success_rate])
+  @@map("provider_reliability")
+}
+
+// ============================================
+// QUOTE CACHE TABLE
+// ============================================
+model QuoteCache {
+  id String @id @default(uuid())
+
+  // Cache Key Components
+  provider          String
+  source_chain      String
+  destination_chain String
+  source_token      String
+  destination_token String
+  input_amount      String
+
+  // Cached Data
+  cached_route Json // NormalizedRoute object
+
+  // Cache Metadata
+  cache_key String @unique
+  hit_count Int    @default(0)
+
+  // Timestamps
+  created_at       DateTime @default(now())
+  expires_at       DateTime
+  last_accessed_at DateTime @default(now())
+
+  @@index([cache_key, expires_at])
+  @@index([provider, source_chain, destination_chain])
+  @@index([expires_at])
+  @@map("quote_cache")
+}
+
+// ============================================
+// USER PREFERENCES TABLE
+// ============================================
+model UserPreference {
+  id          String @id @default(uuid())
+  user_wallet String @unique
+
+  // Default Strategy
+  default_strategy String @default("lowest_cost") // StrategyType
+
+  // Custom Scoring Weights
+  custom_weights Json? // ScoringWeights object (if strategy is 'custom')
+
+  // Preferences
+  max_slippage        Float @default(1.0)
+  preferred_providers Json? // String[] of preferred provider names
+  blacklisted_chains  Json? // String[] of chains to avoid
+
+  // Notification Settings
+  notify_on_completion Boolean @default(false)
+  notification_webhook String?
+
+  // Timestamps
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([user_wallet])
+  @@map("user_preferences")
+}
+
+// ============================================
+// FAILOVER ATTEMPTS TABLE
+// ============================================
+model FailoverAttempt {
+  id           String @id @default(uuid())
+  execution_id String
+
+  // Failover Details
+  original_provider String
+  fallback_provider String
+  reason            String
+
+  // Result
+  was_successful Boolean
+  error_message  String?
+
+  // Timestamps
+  attempted_at DateTime @default(now())
+
+  // Relations
+  execution Execution @relation(fields: [execution_id], references: [id])
+
+  @@index([execution_id])
+  @@index([original_provider, was_successful])
+  @@map("failover_attempts")
 }
