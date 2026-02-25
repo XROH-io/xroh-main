@@ -5,35 +5,21 @@
 
 import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PrismaService.name);
+  private pool: Pool;
 
   constructor() {
-    super({
-      log: [
-        { emit: 'event', level: 'query' },
-        { emit: 'event', level: 'error' },
-        { emit: 'event', level: 'warn' },
-      ],
-    });
+    const connectionString = process.env.DATABASE_URL || '';
+    const pool = new Pool({ connectionString });
+    const adapter = new PrismaPg(pool);
 
-    // Log query events in development
-    if (process.env.NODE_ENV === 'development') {
-      this.$on('query' as never, (e: any) => {
-        this.logger.debug(`Query: ${e.query}`);
-        this.logger.debug(`Duration: ${e.duration}ms`);
-      });
-    }
-
-    this.$on('error' as never, (e: any) => {
-      this.logger.error(`Prisma Error: ${e.message}`);
-    });
-
-    this.$on('warn' as never, (e: any) => {
-      this.logger.warn(`Prisma Warning: ${e.message}`);
-    });
+    super({ adapter });
+    this.pool = pool;
   }
 
   async onModuleInit() {
@@ -48,6 +34,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
   async onModuleDestroy() {
     await this.$disconnect();
+    await this.pool.end();
     this.logger.log('Database connection closed');
   }
 

@@ -10,10 +10,12 @@ import { MayanService } from './mayan/mayan.service';
 import { ChangenowService } from './changenow/changenow.service';
 import { QuoteAggregatorService } from './quote-aggregator.service';
 import { ProviderHealthService } from './provider-health.service';
+import { AppConfigService } from '../../config/app-config.service';
 
 @Module({
   imports: [ScheduleModule.forRoot()],
   providers: [
+    AppConfigService,
     LifiService,
     MayanService,
     ChangenowService,

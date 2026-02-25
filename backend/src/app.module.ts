@@ -13,6 +13,8 @@ import { ProvidersModule } from './modules/providers/providers.module';
 import { QuotesModule } from './modules/quotes/quotes.module';
 import { RoutesModule } from './modules/routes/routes.module';
 import { StrategyModule } from './modules/strategy/strategy.module';
+import { ApiKeysModule } from './modules/api-keys/api-keys.module';
+import { TokensController } from './modules/tokens.controller';
 
 @Module({
   imports: [
@@ -61,8 +63,10 @@ import { StrategyModule } from './modules/strategy/strategy.module';
     RoutesModule,
     // Strategy management
     StrategyModule,
+    // API Keys management
+    ApiKeysModule,
   ],
-  controllers: [AppController],
+  controllers: [AppController, TokensController],
   providers: [AppService, AppConfigService],
 })
 export class AppModule {}

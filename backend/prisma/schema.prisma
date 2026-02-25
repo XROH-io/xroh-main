@@ -3,6 +3,7 @@
 
 generator client {
   provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
@@ -223,4 +224,39 @@ model FailoverAttempt {
   @@index([execution_id])
   @@index([original_provider, was_successful])
   @@map("failover_attempts")
+}
+
+// ============================================
+// API KEYS TABLE
+// ============================================
+model ApiKey {
+  id                 String     @id @default(uuid())
+  user_wallet        String
+  key                String     @unique
+  name               String
+  available_requests Int        @default(10000)
+  total_calls        Int        @default(0)
+  is_active          Boolean    @default(true)
+  created_at         DateTime   @default(now())
+  updated_at         DateTime   @updatedAt
+  usages             ApiUsage[]
+
+  @@index([user_wallet])
+  @@map("api_keys")
+}
+
+// ============================================
+// API USAGE TABLE
+// ============================================
+model ApiUsage {
+  id         String   @id @default(uuid())
+  api_key_id String
+  endpoint   String
+  status     Int
+  latency_ms Int
+  created_at DateTime @default(now())
+  api_key    ApiKey   @relation(fields: [api_key_id], references: [id])
+
+  @@index([api_key_id])
+  @@map("api_usages")
 }
