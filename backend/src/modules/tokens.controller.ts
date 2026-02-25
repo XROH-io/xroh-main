@@ -1,9 +1,9 @@
 /**
  * Tokens & Chains Controller
- * Serves available tokens and supported chains to the frontend
+ * Serves available tokens, supported chains, and real-time prices to the frontend
  */
 
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, Logger } from '@nestjs/common';
 
 interface ChainInfo {
   id: string;
@@ -24,6 +24,15 @@ interface TokenInfo {
   coingeckoId: string;
   popular: boolean;
 }
+
+// In-memory price cache (TTL: 30 seconds)
+interface PriceCache {
+  prices: Record<string, number>;
+  timestamp: number;
+}
+
+let priceCache: PriceCache = { prices: {}, timestamp: 0 };
+const PRICE_CACHE_TTL = 30_000; // 30 seconds
 
 const SUPPORTED_CHAINS: ChainInfo[] = [
   { id: 'solana', name: 'Solana', icon: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png', chainId: null, nativeToken: 'SOL', color: '#9945FF' },
@@ -230,6 +239,8 @@ const SUPPORTED_TOKENS: TokenInfo[] = [
 
 @Controller('tokens')
 export class TokensController {
+  private readonly logger = new Logger(TokensController.name);
+
   @Get()
   getTokens(@Query('chain') chain?: string) {
     if (chain) {
@@ -250,5 +261,143 @@ export class TokensController {
       tokens = tokens.filter(t => t.chains.includes(chain.toLowerCase()));
     }
     return tokens;
+  }
+
+  /**
+   * GET /tokens/prices?ids=ethereum,solana,binancecoin
+   * Returns real-time USD prices from CoinGecko
+   */
+  @Get('prices')
+  async getPrices(@Query('ids') ids?: string): Promise<Record<string, number>> {
+    // Get all unique coingeckoIds from tokens, or use provided ids
+    const coingeckoIds = ids
+      ? ids.split(',').map(id => id.trim())
+      : [...new Set(SUPPORTED_TOKENS.map(t => t.coingeckoId))];
+
+    // Check cache
+    const now = Date.now();
+    const cachedIds = coingeckoIds.filter(id => priceCache.prices[id] !== undefined);
+    const allCached = cachedIds.length === coingeckoIds.length && (now - priceCache.timestamp) < PRICE_CACHE_TTL;
+
+    if (allCached) {
+      const result: Record<string, number> = {};
+      for (const id of coingeckoIds) {
+        result[id] = priceCache.prices[id];
+      }
+      return result;
+    }
+
+    // Fetch fresh prices from CoinGecko
+    try {
+      const idsParam = coingeckoIds.join(',');
+      const url = `https://api.coingecko.com/api/v3/simple/price?ids=${idsParam}&vs_currencies=usd`;
+      
+      this.logger.log(`Fetching prices from CoinGecko for: ${idsParam}`);
+      
+      const response = await fetch(url, {
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        this.logger.warn(`CoinGecko API returned ${response.status}, using cached prices`);
+        // Return cached prices if available, otherwise return fallback
+        if (Object.keys(priceCache.prices).length > 0) {
+          const result: Record<string, number> = {};
+          for (const id of coingeckoIds) {
+            result[id] = priceCache.prices[id] || 0;
+          }
+          return result;
+        }
+        return this.getFallbackPrices(coingeckoIds);
+      }
+
+      const data = await response.json();
+      
+      // Update cache
+      const result: Record<string, number> = {};
+      for (const id of coingeckoIds) {
+        const price = data[id]?.usd || 0;
+        result[id] = price;
+        priceCache.prices[id] = price;
+      }
+      priceCache.timestamp = now;
+
+      this.logger.log(`Prices fetched: ${JSON.stringify(result)}`);
+      return result;
+    } catch (error) {
+      this.logger.error(`Failed to fetch prices: ${error.message}`);
+      // Return cached or fallback prices
+      if (Object.keys(priceCache.prices).length > 0) {
+        const result: Record<string, number> = {};
+        for (const id of coingeckoIds) {
+          result[id] = priceCache.prices[id] || 0;
+        }
+        return result;
+      }
+      return this.getFallbackPrices(coingeckoIds);
+    }
+  }
+
+  /**
+   * GET /tokens/estimate?from=ethereum&to=solana&amount=1
+   * Quick price estimate using coingecko IDs - no route needed
+   */
+  @Get('estimate')
+  async getEstimate(
+    @Query('from') fromId: string,
+    @Query('to') toId: string,
+    @Query('amount') amount: string,
+  ): Promise<{ estimatedOutput: number; fromPriceUsd: number; toPriceUsd: number; rate: number }> {
+    const prices = await this.getPrices(`${fromId},${toId}`);
+    const fromPrice = prices[fromId] || 0;
+    const toPrice = prices[toId] || 0;
+    const inputAmount = parseFloat(amount) || 0;
+
+    if (fromPrice === 0 || toPrice === 0) {
+      return { estimatedOutput: 0, fromPriceUsd: fromPrice, toPriceUsd: toPrice, rate: 0 };
+    }
+
+    const rate = fromPrice / toPrice;
+    const estimatedOutput = inputAmount * rate;
+
+    return {
+      estimatedOutput: parseFloat(estimatedOutput.toFixed(8)),
+      fromPriceUsd: fromPrice,
+      toPriceUsd: toPrice,
+      rate: parseFloat(rate.toFixed(8)),
+    };
+  }
+
+  /**
+   * Fallback prices when CoinGecko is unavailable
+   */
+  private getFallbackPrices(ids: string[]): Record<string, number> {
+    const fallback: Record<string, number> = {
+      'ethereum': 3500,
+      'solana': 170,
+      'binancecoin': 600,
+      'matic-network': 0.45,
+      'avalanche-2': 35,
+      'usd-coin': 1,
+      'tether': 1,
+      'dai': 1,
+      'wrapped-bitcoin': 95000,
+      'chainlink': 15,
+      'uniswap': 7,
+      'aave': 200,
+      'raydium': 3,
+      'jupiter-exchange-solana': 0.8,
+      'bonk': 0.000025,
+      'dogwifcoin': 1.5,
+      'arbitrum': 0.7,
+      'optimism': 1.5,
+    };
+    const result: Record<string, number> = {};
+    for (const id of ids) {
+      result[id] = fallback[id] || 0;
+    }
+    return result;
   }
 }
