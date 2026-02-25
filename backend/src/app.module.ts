@@ -9,6 +9,8 @@ import { PrismaModule } from './config/prisma.module';
 import { AppConfigService } from './config/app-config.service';
 import { validationSchema } from './config/env.validation';
 import { HealthModule } from './common/health/health.module';
+import { ProvidersModule } from './modules/providers/providers.module';
+import { QuotesModule } from './modules/quotes/quotes.module';
 
 @Module({
   imports: [
@@ -49,6 +51,10 @@ import { HealthModule } from './common/health/health.module';
     PrismaModule,
     // Health check module
     HealthModule,
+    // Provider integrations
+    ProvidersModule,
+    // Quotes aggregation
+    QuotesModule,
   ],
   controllers: [AppController],
   providers: [AppService, AppConfigService],
