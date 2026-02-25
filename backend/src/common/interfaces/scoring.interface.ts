@@ -31,13 +31,8 @@ export interface RouteScore {
   // Total weighted score
   total_score: number;
   
-  // Explanation data
-  strongest_factor: 'fee' | 'speed' | 'reliability' | 'slippage' | 'liquidity';
-  weakest_factor: 'fee' | 'speed' | 'reliability' | 'slippage' | 'liquidity';
-  
-  // Comparative metrics
-  savings_vs_alternatives?: string;
-  time_vs_alternatives?: string;
+  // Human-readable explanation
+  explanation: string;
 }
 
 /**
@@ -47,7 +42,17 @@ export interface StrategyTemplate {
   name: string;
   description: string;
   weights: ScoringWeights;
-  constraints: StrategyConstraints;
+}
+
+/**
+ * Route comparison result
+ */
+export interface RouteComparison {
+  cheapest_route: any;
+  fastest_route: any;
+  safest_route: any;
+  savings_vs_cheapest: number;
+  time_difference: number;
 }
 
 /**

@@ -93,14 +93,3 @@ export interface QuoteResponse {
   explanation?: string;
   portfolio_impact?: any; // Will be defined in portfolio interface
 }
-
-/**
- * Route comparison data
- */
-export interface RouteComparison {
-  cheapest_route: NormalizedRoute;
-  fastest_route: NormalizedRoute;
-  safest_route: NormalizedRoute;
-  savings_vs_cheapest: number;
-  time_difference: number;
-}

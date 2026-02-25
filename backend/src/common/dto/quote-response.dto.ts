@@ -4,6 +4,7 @@
  */
 
 import { ApiProperty } from '@nestjs/swagger';
+import type { RouteScore } from '../interfaces';
 
 /**
  * Individual route step details
@@ -99,6 +100,23 @@ export class NormalizedRouteDto {
 
   @ApiProperty({ example: 0.85 })
   liquidity_score: number;
+
+  @ApiProperty({ 
+    example: {
+      route_id: '550e8400-e29b-41d4-a716-446655440000',
+      fee_score: 85.5,
+      speed_score: 92.3,
+      reliability_score: 88.7,
+      slippage_score: 100.0,
+      liquidity_score: 85.0,
+      total_score: 88.4,
+      explanation: 'Very competitive fees. Fast execution time. Highly reliable provider. Low slippage risk'
+    }
+  })
+  score?: RouteScore;
+
+  @ApiProperty({ example: 1 })
+  rank?: number;
 
   @ApiProperty({ type: [RouteStepDto] })
   steps: RouteStepDto[];

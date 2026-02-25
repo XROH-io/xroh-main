@@ -6,6 +6,7 @@
 import { IsString, IsNotEmpty, IsNumber, IsOptional, Min, Max, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
+import type { StrategyType } from '../interfaces';
 
 export class GetQuoteRequestDto {
   @ApiProperty({
@@ -69,7 +70,7 @@ export class GetQuoteRequestDto {
   @IsOptional()
   @IsString()
   @IsEnum(['lowest_cost', 'fast_execution', 'safety_first', 'portfolio_balanced', 'custom'])
-  strategy?: string;
+  strategy?: StrategyType;
 
   @ApiPropertyOptional({
     description: 'Specific providers to include (comma-separated)',

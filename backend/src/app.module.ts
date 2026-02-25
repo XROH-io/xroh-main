@@ -11,6 +11,8 @@ import { validationSchema } from './config/env.validation';
 import { HealthModule } from './common/health/health.module';
 import { ProvidersModule } from './modules/providers/providers.module';
 import { QuotesModule } from './modules/quotes/quotes.module';
+import { RoutesModule } from './modules/routes/routes.module';
+import { StrategyModule } from './modules/strategy/strategy.module';
 
 @Module({
   imports: [
@@ -55,6 +57,10 @@ import { QuotesModule } from './modules/quotes/quotes.module';
     ProvidersModule,
     // Quotes aggregation
     QuotesModule,
+    // Route scoring and comparison
+    RoutesModule,
+    // Strategy management
+    StrategyModule,
   ],
   controllers: [AppController],
   providers: [AppService, AppConfigService],

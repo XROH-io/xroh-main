@@ -5,6 +5,7 @@
 
 import { Controller, Post, Body, Logger } from '@nestjs/common';
 import { QuoteAggregatorService } from '../providers/quote-aggregator.service';
+import { RouteComparisonService } from '../routes/route-comparison.service';
 import { GetQuoteRequestDto, QuoteResponseDto } from '../../common/dto';
 
 @Controller('quotes')
@@ -13,12 +14,13 @@ export class QuotesController {
 
   constructor(
     private readonly quoteAggregator: QuoteAggregatorService,
+    private readonly routeComparison: RouteComparisonService,
   ) {}
 
   @Post()
   async getQuotes(@Body() request: GetQuoteRequestDto) {
     this.logger.log(
-      `Quote request: ${request.source_chain} → ${request.destination_chain}`,
+      `Quote request: ${request.source_chain} → ${request.destination_chain} (strategy: ${request.strategy || 'lowest_cost'})`,
     );
 
     const result = await this.quoteAggregator.aggregateQuotes({
@@ -31,8 +33,19 @@ export class QuotesController {
       user_wallet: request.user_wallet,
     });
 
+    // Apply scoring and ranking
+    const rankedRoutes = await this.routeComparison.scoreAndRankRoutes(
+      result.routes,
+      request.strategy || 'lowest_cost',
+      request.user_wallet,
+    );
+
+    this.logger.log(
+      `Returning ${rankedRoutes.length} routes, top score: ${rankedRoutes[0]?.score.total_score}`,
+    );
+
     const response: QuoteResponseDto = {
-      routes: result.routes.map((route) => ({
+      routes: rankedRoutes.map((route) => ({
         route_id: route.route_id,
         provider: route.provider,
         source_chain: route.source_chain,
@@ -52,6 +65,8 @@ export class QuotesController {
         slippage_risk: route.slippage_risk,
         reliability_score: route.reliability_score,
         liquidity_score: route.liquidity_score,
+        score: route.score,
+        rank: route.rank,
         steps: route.steps.map(step => ({
           step_number: step.step_number,
           action_type: step.action,
@@ -65,7 +80,7 @@ export class QuotesController {
         })),
       })),
       total_routes: result.total_routes,
-      recommended_route_id: result.routes[0]?.route_id || '',
+      recommended_route_id: rankedRoutes[0]?.route_id || '',
       strategy_used: request.strategy || 'lowest_cost',
       response_time_ms: result.response_time_ms,
       provider_statuses: result.provider_statuses,
