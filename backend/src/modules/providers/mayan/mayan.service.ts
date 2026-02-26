@@ -33,10 +33,29 @@ export class MayanService implements ProviderConnector {
 
   constructor(private readonly configService: AppConfigService) {}
 
+  private getTokenDecimals(token: string, chain: string): number {
+    // Known token decimals
+    const decimalsMap: Record<string, number> = {
+      'So11111111111111111111111111111111111111112': 9,
+      'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 6,
+      'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': 6,
+      '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R': 6,
+      'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN': 6,
+      'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263': 5,
+      'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm': 6,
+      '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599': 8, // WBTC
+    };
+    return decimalsMap[token] ?? 18;
+  }
+
   async getQuote(params: QuoteParams): Promise<NormalizedRoute> {
     try {
+      // Mayan SDK expects human-readable float, not raw atomic units
+      const decimals = this.getTokenDecimals(params.source_token, params.source_chain);
+      const humanAmount = parseFloat(params.amount) / Math.pow(10, decimals);
+
       const quotes = await fetchQuote({
-        amount: parseFloat(params.amount),
+        amount: humanAmount,
         fromToken: params.source_token,
         toToken: params.destination_token,
         fromChain: params.source_chain as any,

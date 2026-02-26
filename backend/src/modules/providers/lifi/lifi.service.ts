@@ -43,15 +43,21 @@ export class LifiService implements ProviderConnector {
 
   async getQuote(params: QuoteParams): Promise<NormalizedRoute> {
     try {
+      // Use a valid dummy address for quote-only (Solana vs EVM format)
+      const dummyAddress = params.source_chain === 'solana'
+        ? '9CkiC555BUW6R8T7eoRPETzg47Ck3Z4qNUGEXyvs6B4F'
+        : '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045';
+
       const routeOptions: any = {
         fromChainId: this.getChainId(params.source_chain),
         toChainId: this.getChainId(params.destination_chain),
         fromTokenAddress: params.source_token,
         toTokenAddress: params.destination_token,
         fromAmount: params.amount,
-        fromAddress: params.user_wallet || '0x0000000000000000000000000000000000000000',
+        fromAddress: params.user_wallet || dummyAddress,
         options: {
-          slippage: params.slippage_tolerance || 0.01,
+          // LI.FI SDK expects decimal fraction (0.01 = 1%). Our backend stores as percentage (1.0 = 1%).
+          slippage: (params.slippage_tolerance || 1.0) / 100,
         },
       };
 

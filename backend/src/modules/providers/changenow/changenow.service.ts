@@ -18,9 +18,15 @@ import { Provider } from '../../../common/constants';
 import { AppConfigService } from '../../../config/app-config.service';
 
 interface ChangeNowEstimate {
-  estimatedAmount: string;
+  fromCurrency: string;
+  toCurrency: string;
+  fromAmount: number;
+  toAmount: number;
+  flow: string;
   transactionSpeedForecast: string;
   warningMessage?: string;
+  depositFee?: number;
+  withdrawalFee?: number;
 }
 
 interface ChangeNowExchange {
@@ -74,13 +80,14 @@ export class ChangenowService implements ProviderConnector {
           params: {
             fromCurrency,
             toCurrency,
-            fromAmount: this.formatAmount(params.amount),
+            fromAmount: this.formatAmount(params.amount, params.source_chain),
             flow: 'standard',
           },
         },
       );
 
-      if (!response.data || !response.data.estimatedAmount) {
+      if (!response.data || response.data.toAmount === undefined) {
+        this.logger.error(`ChangeNOW raw response: ${JSON.stringify(response.data)}`);
         throw new Error('Invalid response from ChangeNOW');
       }
 
@@ -177,7 +184,7 @@ export class ChangenowService implements ProviderConnector {
         protocol: 'changenow',
         from_token: fromCurrency,
         to_token: toCurrency,
-        expected_output: estimate.estimatedAmount,
+        expected_output: estimate.toAmount.toString(),
         estimated_gas: '0',
         chain: params.source_chain,
       },
@@ -191,7 +198,7 @@ export class ChangenowService implements ProviderConnector {
       source_token: params.source_token,
       destination_token: params.destination_token,
       input_amount: params.amount,
-      output_amount: estimate.estimatedAmount,
+      output_amount: estimate.toAmount.toString(),
       total_fee: {
         network_fee: '0',
         bridge_fee: '0',
@@ -223,18 +230,48 @@ export class ChangenowService implements ProviderConnector {
   }
 
   private mapTokenToCurrency(token: string, chain: string): string {
-    // Simple mapping - in production, use a comprehensive token list
-    const nativeTokens: Record<string, string> = {
-      '0x0000000000000000000000000000000000000000': 'eth',
+    // Comprehensive token → ChangeNOW currency mapping
+    const tokenMap: Record<string, string> = {
+      // Native tokens (chain-aware for 0x0000...)
+      '0x0000000000000000000000000000000000000000': chain === 'binance' ? 'bnb' : 'eth',
       'So11111111111111111111111111111111111111112': 'sol',
+      '0x0000000000000000000000000000000000001010': 'matic',
+      // Stablecoins (Solana addresses)
+      'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 'usdc',
+      'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': 'usdt',
+      // EVM stablecoins / major tokens
+      '0x6B175474E89094C44Da98b954EedeAC495271d0F': 'dai',
+      '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599': 'wbtc',
+      '0x514910771AF9Ca656af840dff83E8264EcF986CA': 'link',
+      '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984': 'uni',
+      '0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9': 'aave',
+      // Solana ecosystem
+      '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R': 'ray',
+      'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN': 'jup',
+      'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263': 'bonk',
+      'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm': 'wif',
+      // L2 native tokens
+      '0x912CE59144191C1204E64559FE8253a0e49E6548': 'arb',
+      '0x4200000000000000000000000000000000000042': 'op',
     };
 
-    return nativeTokens[token] || token.toLowerCase();
+    return tokenMap[token] || token.toLowerCase();
   }
 
-  private formatAmount(amount: string): string {
-    // Convert from wei/lamports to decimal
-    return (parseFloat(amount) / 1e18).toFixed(6);
+  private formatAmount(amount: string, chain?: string): string {
+    // Convert from smallest atomic unit to decimal using chain-specific decimals
+    const chainDecimals: Record<string, number> = {
+      solana: 9,
+      ethereum: 18,
+      polygon: 18,
+      arbitrum: 18,
+      optimism: 18,
+      base: 18,
+      binance: 18,
+      avalanche: 18,
+    };
+    const decimals = chainDecimals[chain?.toLowerCase() || ''] ?? 18;
+    return (parseFloat(amount) / Math.pow(10, decimals)).toFixed(6);
   }
 
   private parseEstimatedTime(forecast: string): number {

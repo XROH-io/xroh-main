@@ -39,3 +39,6 @@ Thumbs.db
 *.tmp
 *.temp
 .cache/
+
+# Dashboard has its own repo (XROH-io/Dashboard.git)
+dashboard/

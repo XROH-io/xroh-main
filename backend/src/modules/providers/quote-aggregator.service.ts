@@ -67,22 +67,22 @@ export class QuoteAggregatorService {
         routes.push(result.value);
         providerStatuses[providerName] = 'success';
         this.logger.log(`${providerName}: Quote fetched successfully`);
-      } else if (result.status === 'rejected') {
+      } else {
+        // Handles both: rejected promises AND fulfilled-with-null (caught errors inside fetchQuoteWithTimeout)
         providerStatuses[providerName] = 'failed';
-        this.logger.warn(
-          `${providerName}: ${result.reason?.message || 'Unknown error'}`,
-        );
+        const reason = result.status === 'rejected' ? result.reason?.message : 'No route returned';
+        this.logger.warn(`${providerName}: ${reason || 'Unknown error'}`);
       }
     });
 
     // Validate routes
     const validRoutes = routes.filter((route) => this.validateRoute(route));
 
-    // Sort by best output amount
+    // Sort by best output amount (parseFloat handles both raw integers and decimals)
     validRoutes.sort((a, b) => {
-      const amountA = BigInt(a.output_amount);
-      const amountB = BigInt(b.output_amount);
-      return amountA > amountB ? -1 : 1;
+      const amountA = parseFloat(a.output_amount);
+      const amountB = parseFloat(b.output_amount);
+      return amountB - amountA;
     });
 
     const aggregatedResult: AggregatedQuoteResult = {
@@ -101,7 +101,7 @@ export class QuoteAggregatorService {
   private async fetchQuoteWithTimeout(
     provider: ProviderConnector,
     params: QuoteParams,
-    timeout: number = 5000,
+    timeout: number = 15000,
   ): Promise<NormalizedRoute | null> {
     try {
       // Check if provider supports this route
@@ -126,19 +126,16 @@ export class QuoteAggregatorService {
 
   private validateRoute(route: NormalizedRoute): boolean {
     try {
-      // Sanity checks
-      const outputAmount = BigInt(route.output_amount);
-      const inputAmount = BigInt(route.input_amount);
+      // Use parseFloat to handle both raw-unit integers (LI.FI) and human-readable floats (ChangeNOW/Mayan)
+      const outputAmount = parseFloat(route.output_amount);
 
-      if (outputAmount <= BigInt(0)) {
-        this.logger.warn(`Invalid route ${route.route_id}: output amount is zero`);
+      if (isNaN(outputAmount) || outputAmount <= 0) {
+        this.logger.warn(`Invalid route ${route.route_id}: output amount is zero or invalid`);
         return false;
       }
 
-      if (outputAmount > inputAmount * BigInt(2)) {
-        this.logger.warn(`Suspicious route ${route.route_id}: output > 2x input`);
-        return false;
-      }
+      // NOTE: Do NOT compare output vs input amounts with BigInt across chains —
+      // different tokens have different decimal scales (SOL=9, ETH=18), making raw comparisons meaningless.
 
       if (route.estimated_time > 86400) {
         this.logger.warn(`Route ${route.route_id}: estimated time > 24 hours`);
