@@ -71,8 +71,14 @@ export class ChangenowService implements ProviderConnector {
 
   async getQuote(params: QuoteParams): Promise<NormalizedRoute> {
     try {
-      const fromCurrency = this.mapTokenToCurrency(params.source_token, params.source_chain);
-      const toCurrency = this.mapTokenToCurrency(params.destination_token, params.destination_chain);
+      const fromCurrency = this.mapTokenToCurrency(
+        params.source_token,
+        params.source_chain,
+      );
+      const toCurrency = this.mapTokenToCurrency(
+        params.destination_token,
+        params.destination_chain,
+      );
 
       const response = await this.client.get<ChangeNowEstimate>(
         `/exchange/estimated-amount`,
@@ -87,42 +93,144 @@ export class ChangenowService implements ProviderConnector {
       );
 
       if (!response.data || response.data.toAmount === undefined) {
-        this.logger.error(`ChangeNOW raw response: ${JSON.stringify(response.data)}`);
+        this.logger.error(
+          `ChangeNOW raw response: ${JSON.stringify(response.data)}`,
+        );
         throw new Error('Invalid response from ChangeNOW');
       }
 
-      return this.normalizeRoute(response.data, params, fromCurrency, toCurrency);
+      return this.normalizeRoute(
+        response.data,
+        params,
+        fromCurrency,
+        toCurrency,
+      );
     } catch (error) {
       this.logger.error(`ChangeNOW quote error: ${error.message}`, error.stack);
       throw error;
     }
   }
 
-  async buildTransaction(routeId: string, userWallet: string): Promise<TransactionRequest> {
-    try {
-      // ChangeNOW requires creating an exchange first
-      // This would return the deposit address for the user
-      throw new Error('buildTransaction requires creating exchange via ChangeNOW API');
-    } catch (error) {
-      this.logger.error(`ChangeNOW build transaction error: ${error.message}`);
-      throw error;
-    }
+  /**
+   * Create a real exchange on ChangeNOW.
+   * Returns the deposit address (payinAddress) where the user must send funds,
+   * plus the exchange ID for status tracking.
+   */
+  async createExchange(params: {
+    fromCurrency: string;
+    toCurrency: string;
+    fromAmount: string;
+    payoutAddress: string;
+  }): Promise<{
+    id: string;
+    payinAddress: string;
+    fromCurrency: string;
+    toCurrency: string;
+    fromAmount: string;
+    toAmount: string;
+    payoutAddress: string;
+    status: string;
+    validUntil?: string;
+  }> {
+    const body = {
+      fromCurrency: params.fromCurrency,
+      toCurrency: params.toCurrency,
+      fromAmount: params.fromAmount,
+      address: params.payoutAddress,
+      flow: 'standard',
+    };
+
+    this.logger.log(
+      `Creating ChangeNOW exchange: ${params.fromAmount} ${params.fromCurrency} → ${params.toCurrency} to ${params.payoutAddress}`,
+    );
+
+    const response = await this.client.post<{
+      id: string;
+      status: string;
+      payinAddress: string;
+      fromCurrency: string;
+      toCurrency: string;
+      amountExpectedFrom: string;
+      amountExpectedTo: string;
+      payoutAddress: string;
+      validUntil?: string;
+    }>('/exchange', body);
+
+    const d = response.data;
+    return {
+      id: d.id,
+      payinAddress: d.payinAddress,
+      fromCurrency: d.fromCurrency,
+      toCurrency: d.toCurrency,
+      fromAmount: d.amountExpectedFrom ?? params.fromAmount,
+      toAmount: d.amountExpectedTo ?? '0',
+      payoutAddress: d.payoutAddress,
+      status: d.status,
+      validUntil: d.validUntil,
+    };
+  }
+
+  async buildTransaction(
+    routeId: string,
+    userWallet: string,
+  ): Promise<TransactionRequest> {
+    throw new Error('Use createExchange() for ChangeNOW transactions');
   }
 
   async getStatus(transactionHash: string): Promise<ExecutionStatusUpdate> {
-    try {
-      const response = await this.client.get<ChangeNowExchange>(
-        `/exchange/by-id?id=${transactionHash}`,
-      );
+    const detail = await this.getExchangeDetail(transactionHash);
+    return {
+      execution_id: transactionHash,
+      status: this.mapStatus(detail.status),
+      transaction_hash: detail.payoutHash || transactionHash,
+      timestamp: new Date(),
+    };
+  }
 
+  /**
+   * Returns full exchange detail including payoutHash (confirmed tx hash)
+   * which is populated once the exchange reaches "sending" or "finished" state.
+   */
+  async getExchangeDetail(exchangeId: string): Promise<{
+    id: string;
+    status: string;
+    payinHash?: string;
+    payoutHash?: string;
+    fromCurrency: string;
+    toCurrency: string;
+    fromAmount: string;
+    toAmount: string;
+    payoutAddress: string;
+  }> {
+    try {
+      const response = await this.client.get<{
+        id: string;
+        status: string;
+        payinHash?: string;
+        payoutHash?: string;
+        fromCurrency: string;
+        toCurrency: string;
+        amountFrom?: string;
+        amountTo?: string;
+        fromAmount?: string;
+        toAmount?: string;
+        payoutAddress: string;
+      }>(`/exchange/by-id?id=${exchangeId}`);
+
+      const d = response.data;
       return {
-        execution_id: transactionHash,
-        status: this.mapStatus(response.data.status),
-        transaction_hash: transactionHash,
-        timestamp: new Date(),
+        id: d.id,
+        status: d.status,
+        payinHash: d.payinHash,
+        payoutHash: d.payoutHash,
+        fromCurrency: d.fromCurrency,
+        toCurrency: d.toCurrency,
+        fromAmount: d.amountFrom ?? d.fromAmount ?? '0',
+        toAmount: d.amountTo ?? d.toAmount ?? '0',
+        payoutAddress: d.payoutAddress,
       };
     } catch (error) {
-      this.logger.error(`ChangeNOW status check error: ${error.message}`);
+      this.logger.error(`ChangeNOW exchange detail error: ${error.message}`);
       throw error;
     }
   }
@@ -204,11 +312,13 @@ export class ChangenowService implements ProviderConnector {
         bridge_fee: '0',
         protocol_fee: '0',
       },
-      estimated_time: this.parseEstimatedTime(estimate.transactionSpeedForecast),
+      estimated_time: this.parseEstimatedTime(
+        estimate.transactionSpeedForecast,
+      ),
       slippage_tolerance: params.slippage_tolerance || 1.0,
       slippage_risk: 'medium',
       reliability_score: 0.88,
-      liquidity_score: 0.90,
+      liquidity_score: 0.9,
       steps,
       raw_provider_data: estimate,
     };
@@ -233,12 +343,13 @@ export class ChangenowService implements ProviderConnector {
     // Comprehensive token → ChangeNOW currency mapping
     const tokenMap: Record<string, string> = {
       // Native tokens (chain-aware for 0x0000...)
-      '0x0000000000000000000000000000000000000000': chain === 'binance' ? 'bnb' : 'eth',
-      'So11111111111111111111111111111111111111112': 'sol',
+      '0x0000000000000000000000000000000000000000':
+        chain === 'binance' ? 'bnb' : 'eth',
+      So11111111111111111111111111111111111111112: 'sol',
       '0x0000000000000000000000000000000000001010': 'matic',
       // Stablecoins (Solana addresses)
-      'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 'usdc',
-      'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': 'usdt',
+      EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: 'usdc',
+      Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB: 'usdt',
       // EVM stablecoins / major tokens
       '0x6B175474E89094C44Da98b954EedeAC495271d0F': 'dai',
       '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599': 'wbtc',
@@ -247,9 +358,9 @@ export class ChangenowService implements ProviderConnector {
       '0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9': 'aave',
       // Solana ecosystem
       '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R': 'ray',
-      'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN': 'jup',
-      'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263': 'bonk',
-      'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm': 'wif',
+      JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN: 'jup',
+      DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263: 'bonk',
+      EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm: 'wif',
       // L2 native tokens
       '0x912CE59144191C1204E64559FE8253a0e49E6548': 'arb',
       '0x4200000000000000000000000000000000000042': 'op',
@@ -258,20 +369,12 @@ export class ChangenowService implements ProviderConnector {
     return tokenMap[token] || token.toLowerCase();
   }
 
-  private formatAmount(amount: string, chain?: string): string {
-    // Convert from smallest atomic unit to decimal using chain-specific decimals
-    const chainDecimals: Record<string, number> = {
-      solana: 9,
-      ethereum: 18,
-      polygon: 18,
-      arbitrum: 18,
-      optimism: 18,
-      base: 18,
-      binance: 18,
-      avalanche: 18,
-    };
-    const decimals = chainDecimals[chain?.toLowerCase() || ''] ?? 18;
-    return (parseFloat(amount) / Math.pow(10, decimals)).toFixed(6);
+  private formatAmount(amount: string, _chain?: string): string {
+    // QuoteParams amounts are already in human-readable format (e.g. "10" = 10 SOL).
+    // Pass directly to ChangeNOW — no unit conversion needed.
+    const parsed = parseFloat(amount);
+    if (isNaN(parsed) || parsed <= 0) return '0';
+    return parsed.toString();
   }
 
   private parseEstimatedTime(forecast: string): number {

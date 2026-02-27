@@ -4,7 +4,11 @@
  */
 
 import { NormalizedRoute, QuoteParams } from './routes.interface';
-import { TransactionRequest, ExecutionResponse, ExecutionStatusUpdate } from './execution.interface';
+import {
+  TransactionRequest,
+  ExecutionResponse,
+  ExecutionStatusUpdate,
+} from './execution.interface';
 
 /**
  * Health check result from provider
@@ -44,7 +48,10 @@ export interface ProviderConnector {
   /**
    * Build transaction data for execution
    */
-  buildTransaction(routeId: string, userWallet: string): Promise<TransactionRequest>;
+  buildTransaction(
+    routeId: string,
+    userWallet: string,
+  ): Promise<TransactionRequest>;
 
   /**
    * Get execution status by transaction hash

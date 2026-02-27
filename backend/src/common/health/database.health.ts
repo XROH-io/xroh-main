@@ -4,7 +4,11 @@
  */
 
 import { Injectable } from '@nestjs/common';
-import { HealthIndicator, HealthIndicatorResult, HealthCheckError } from '@nestjs/terminus';
+import {
+  HealthIndicator,
+  HealthIndicatorResult,
+  HealthCheckError,
+} from '@nestjs/terminus';
 import { PrismaService } from '../../config/prisma.service';
 
 @Injectable()
@@ -15,10 +19,12 @@ export class DatabaseHealthIndicator extends HealthIndicator {
 
   async isHealthy(key: string): Promise<HealthIndicatorResult> {
     const isHealthy = await this.prismaService.isHealthy();
-    
-    const result = this.getStatus(key, isHealthy, { 
+
+    const result = this.getStatus(key, isHealthy, {
       database: 'PostgreSQL',
-      message: isHealthy ? 'Database is responsive' : 'Database is not responding',
+      message: isHealthy
+        ? 'Database is responsive'
+        : 'Database is not responding',
     });
 
     if (!isHealthy) {

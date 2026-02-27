@@ -3,7 +3,7 @@
  * Handles quote aggregation requests
  */
 
-import { Controller, Post, Body, Get, Query, Logger } from '@nestjs/common';
+import { Controller, Post, Body, Get, Query, Param, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { QuoteAggregatorService } from '../providers/quote-aggregator.service';
 import { ChangenowService } from '../providers/changenow/changenow.service';
 import { RouteComparisonService } from '../routes/route-comparison.service';
@@ -44,12 +44,14 @@ export class QuotesController {
         slippage_tolerance: parseFloat(slippage || '1'),
       });
 
+      // amount is human-readable (e.g. "10" for 10 SOL), no decimals conversion needed
+      const inputHuman = parseFloat(amount);
       return {
         success: true,
         provider: 'changenow',
         output_amount: route.output_amount,
         estimated_time: route.estimated_time,
-        rate: parseFloat(route.output_amount) / (parseFloat(amount) / Math.pow(10, this.getDecimals(sourceChain, sourceToken))),
+        rate: inputHuman > 0 ? parseFloat(route.output_amount) / inputHuman : 0,
       };
     } catch (error) {
       this.logger.error(`ChangeNOW rate error: ${error.message}`);
@@ -64,15 +66,115 @@ export class QuotesController {
     }
   }
 
-  private getDecimals(chain: string, token: string): number {
-    // SOL-based tokens
-    if (token === 'So11111111111111111111111111111111111111112') return 9;
-    if (token === 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v') return 6;
-    if (token === 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB') return 6;
-    if (token === '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599') return 8;
-    if (token === 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263') return 5;
-    if (['4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R', 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN', 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm'].includes(token)) return 6;
-    return 18;
+  /**
+   * POST /quotes/changenow-exchange
+   * Creates a real ChangeNOW exchange. Returns the deposit address where the user
+   * must send funds, plus the exchange ID for tracking.
+   */
+  @Post('changenow-exchange')
+  async createChangeNowExchange(
+    @Body()
+    body: {
+      source_chain: string;
+      destination_chain: string;
+      source_token: string;
+      destination_token: string;
+      amount: string;
+      payout_address: string;
+    },
+  ) {
+    if (!body.payout_address?.trim()) {
+      throw new HttpException('payout_address is required', HttpStatus.BAD_REQUEST);
+    }
+    if (!body.amount || parseFloat(body.amount) <= 0) {
+      throw new HttpException('amount must be greater than 0', HttpStatus.BAD_REQUEST);
+    }
+
+    // Resolve currency tickers from token addresses using the same mapping as getQuote
+    const fromCurrency = this.resolveCurrency(body.source_token, body.source_chain);
+    const toCurrency = this.resolveCurrency(body.destination_token, body.destination_chain);
+
+    this.logger.log(
+      `Creating exchange: ${body.amount} ${fromCurrency} → ${toCurrency}, payout: ${body.payout_address}`,
+    );
+
+    try {
+      const exchange = await this.changenowService.createExchange({
+        fromCurrency,
+        toCurrency,
+        fromAmount: body.amount,
+        payoutAddress: body.payout_address,
+      });
+
+      return {
+        success: true,
+        exchange_id: exchange.id,
+        payin_address: exchange.payinAddress,
+        from_currency: exchange.fromCurrency,
+        to_currency: exchange.toCurrency,
+        from_amount: exchange.fromAmount,
+        to_amount: exchange.toAmount,
+        payout_address: exchange.payoutAddress,
+        status: exchange.status,
+        valid_until: exchange.validUntil,
+      };
+    } catch (error) {
+      this.logger.error(`ChangeNOW exchange creation failed: ${error.message}`);
+      throw new HttpException(
+        { success: false, error: error.response?.data?.message || error.message },
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+  }
+
+  /**
+   * GET /quotes/changenow-status/:exchangeId
+   * Polls exchange status. Returns payoutHash once the exchange is confirmed.
+   */
+  @Get('changenow-status/:exchangeId')
+  async getChangeNowStatus(@Param('exchangeId') exchangeId: string) {
+    try {
+      const detail = await this.changenowService.getExchangeDetail(exchangeId);
+      return {
+        success: true,
+        exchange_id: detail.id,
+        status: detail.status,
+        payout_hash: detail.payoutHash ?? null,
+        payin_hash: detail.payinHash ?? null,
+        from_amount: detail.fromAmount,
+        to_amount: detail.toAmount,
+        is_complete: detail.status === 'finished',
+        is_failed: ['failed', 'refunded', 'expired'].includes(detail.status),
+      };
+    } catch (error) {
+      throw new HttpException(
+        { success: false, error: error.message },
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+  }
+
+  /** Map token address/symbol to ChangeNOW currency ticker */
+  private resolveCurrency(token: string, chain: string): string {
+    const map: Record<string, string> = {
+      So11111111111111111111111111111111111111112: 'sol',
+      EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: 'usdc',
+      Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB: 'usdt',
+      '0x0000000000000000000000000000000000000000': chain === 'binance' ? 'bnb' : 'eth',
+      '0x0000000000000000000000000000000000001010': 'matic',
+      '0x6B175474E89094C44Da98b954EedeAC495271d0F': 'dai',
+      '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599': 'wbtc',
+      '0x514910771AF9Ca656af840dff83E8264EcF986CA': 'link',
+      '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984': 'uni',
+      '0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9': 'aave',
+      '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R': 'ray',
+      JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN: 'jup',
+      DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263: 'bonk',
+      EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm: 'wif',
+      '0x912CE59144191C1204E64559FE8253a0e49E6548': 'arb',
+      '0x4200000000000000000000000000000000000042': 'op',
+    };
+    return map[token] ?? token.toLowerCase();
   }
 
   @Post()
@@ -125,7 +227,7 @@ export class QuotesController {
         liquidity_score: route.liquidity_score,
         score: route.score,
         rank: route.rank,
-        steps: route.steps.map(step => ({
+        steps: route.steps.map((step) => ({
           step_number: step.step_number,
           action_type: step.action,
           provider: route.provider,

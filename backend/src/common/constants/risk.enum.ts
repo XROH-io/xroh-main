@@ -80,6 +80,8 @@ export const RELIABILITY_THRESHOLDS = {
 export const RISK_WARNINGS: Record<OverallRisk, string> = {
   [OverallRisk.SAFE]: 'This route has low risk and high reliability.',
   [OverallRisk.MODERATE]: 'This route has moderate risk. Proceed with caution.',
-  [OverallRisk.RISKY]: 'This route has elevated risk. Consider alternative routes.',
-  [OverallRisk.VERY_RISKY]: 'This route is very risky. We recommend choosing a safer alternative.',
+  [OverallRisk.RISKY]:
+    'This route has elevated risk. Consider alternative routes.',
+  [OverallRisk.VERY_RISKY]:
+    'This route is very risky. We recommend choosing a safer alternative.',
 };

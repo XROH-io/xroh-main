@@ -43,7 +43,7 @@ export interface ExecutionResponse {
 /**
  * Execution status types
  */
-export type ExecutionStatus = 
+export type ExecutionStatus =
   | 'awaiting_signature'
   | 'pending'
   | 'broadcasting'
@@ -74,26 +74,26 @@ export interface ExecutionRecord {
   route_id: string;
   provider: string;
   user_wallet: string;
-  
+
   // Transaction details
   transaction_hash?: string;
   status: ExecutionStatus;
-  
+
   // Expected values (from quote)
   expected_output: string;
   expected_time: number;
   expected_fee: string;
-  
+
   // Actual values (after execution)
   actual_output?: string;
   actual_time?: number;
   actual_fee?: string;
-  
+
   // Timestamps
   created_at: Date;
   started_at?: Date;
   completed_at?: Date;
-  
+
   // Failure information
   failure_reason?: string;
   failover_attempted?: boolean;

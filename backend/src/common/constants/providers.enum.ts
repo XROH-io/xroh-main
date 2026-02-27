@@ -43,7 +43,10 @@ export enum ProviderSpecialization {
 /**
  * Provider specialization mapping
  */
-export const PROVIDER_SPECIALIZATIONS: Record<Provider, ProviderSpecialization> = {
+export const PROVIDER_SPECIALIZATIONS: Record<
+  Provider,
+  ProviderSpecialization
+> = {
   [Provider.LIFI]: ProviderSpecialization.MULTI_CHAIN,
   [Provider.MAYAN]: ProviderSpecialization.SOLANA_FOCUSED,
   [Provider.CHANGENOW]: ProviderSpecialization.CEX_INTEGRATION,

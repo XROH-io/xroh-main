@@ -14,6 +14,7 @@ import { QuotesModule } from './modules/quotes/quotes.module';
 import { RoutesModule } from './modules/routes/routes.module';
 import { StrategyModule } from './modules/strategy/strategy.module';
 import { ApiKeysModule } from './modules/api-keys/api-keys.module';
+import { AiModule } from './modules/ai/ai.module';
 import { TokensController } from './modules/tokens.controller';
 
 @Module({
@@ -65,6 +66,8 @@ import { TokensController } from './modules/tokens.controller';
     StrategyModule,
     // API Keys management
     ApiKeysModule,
+    // AI Agent
+    AiModule,
   ],
   controllers: [AppController, TokensController],
   providers: [AppService, AppConfigService],

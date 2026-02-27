@@ -1,11 +1,16 @@
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  OnModuleInit,
+  OnModuleDestroy,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(RedisService.name);
-  private client: Redis;
+  private client: Redis | null = null;
   private isConnected = false;
 
   constructor(private configService: ConfigService) {}
@@ -21,17 +26,14 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     try {
       if (redisUrl) {
         this.client = new Redis(redisUrl, {
-          maxRetriesPerRequest: 3,
+          maxRetriesPerRequest: 1,
+          connectTimeout: 5000,
           retryStrategy: (times: number) => {
-            const delay = Math.min(times * 50, 2000);
-            return delay;
+            if (times > 3) return null; // stop retrying
+            return Math.min(times * 200, 2000);
           },
           reconnectOnError: (err) => {
-            const targetError = 'READONLY';
-            if (err.message.includes(targetError)) {
-              return true;
-            }
-            return false;
+            return err.message.includes('READONLY');
           },
         });
       } else {
@@ -41,10 +43,11 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
           password: redisPassword || undefined,
           username: redisUsername || undefined,
           db: redisDb,
-          maxRetriesPerRequest: 3,
+          maxRetriesPerRequest: 1,
+          connectTimeout: 5000,
           retryStrategy: (times: number) => {
-            const delay = Math.min(times * 50, 2000);
-            return delay;
+            if (times > 3) return null; // stop retrying
+            return Math.min(times * 200, 2000);
           },
         });
       }
@@ -54,21 +57,30 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         this.logger.log('Redis client connected');
       });
 
-      this.client.on('error', (error) => {
-        this.logger.error('Redis client error:', error);
+      this.client.on('error', (error: Error) => {
+        this.logger.warn(`Redis client error (degraded mode): ${error.message}`);
         this.isConnected = false;
       });
 
       this.client.on('ready', () => {
+        this.isConnected = true;
         this.logger.log('Redis client ready');
       });
 
-      // Test connection
+      this.client.on('close', () => {
+        this.isConnected = false;
+      });
+
+      // Test connection with a short timeout
       await this.client.ping();
       this.logger.log('Redis connection successful');
     } catch (error) {
-      this.logger.error('Failed to connect to Redis:', error);
-      throw error;
+      this.logger.warn(
+        `Redis unavailable — running in degraded (no-cache) mode. Error: ${(error as Error).message}`,
+      );
+      // Do NOT re-throw; allow the backend to start without Redis
+      this.client = null;
+      this.isConnected = false;
     }
   }
 
@@ -79,41 +91,48 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  getClient(): Redis {
-    if (!this.client) {
-      throw new Error('Redis client not initialized');
-    }
+  getClient(): Redis | null {
     return this.client;
   }
 
-  // Cache operations
+  // Cache operations — all are no-ops when client is unavailable
   async get(key: string): Promise<string | null> {
-    return this.client.get(key);
+    const c = this.client;
+    if (!c) return null;
+    return c.get(key);
   }
 
   async set(key: string, value: string, ttlSeconds?: number): Promise<void> {
+    const c = this.client;
+    if (!c) return;
     if (ttlSeconds) {
-      await this.client.setex(key, ttlSeconds, value);
+      await c.setex(key, ttlSeconds, value);
     } else {
-      await this.client.set(key, value);
+      await c.set(key, value);
     }
   }
 
   async del(key: string): Promise<void> {
-    await this.client.del(key);
+    const c = this.client;
+    if (!c) return;
+    await c.del(key);
   }
 
   async exists(key: string): Promise<boolean> {
-    const result = await this.client.exists(key);
+    const c = this.client;
+    if (!c) return false;
+    const result = await c.exists(key);
     return result === 1;
   }
 
   async setJson<T>(key: string, value: T, ttlSeconds?: number): Promise<void> {
+    if (!this.client) return;
     const jsonValue = JSON.stringify(value);
     await this.set(key, jsonValue, ttlSeconds);
   }
 
   async getJson<T>(key: string): Promise<T | null> {
+    if (!this.client) return null;
     const value = await this.get(key);
     if (!value) return null;
     try {
@@ -125,14 +144,18 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   async deletePattern(pattern: string): Promise<void> {
-    const keys = await this.client.keys(pattern);
+    const c = this.client;
+    if (!c) return;
+    const keys = await c.keys(pattern);
     if (keys.length > 0) {
-      await this.client.del(...keys);
+      await c.del(...keys);
     }
   }
 
   async ping(): Promise<string> {
-    return this.client.ping();
+    const c = this.client;
+    if (!c) return 'PONG (degraded)';
+    return c.ping();
   }
 
   isHealthy(): boolean {

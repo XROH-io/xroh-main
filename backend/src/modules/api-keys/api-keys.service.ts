@@ -44,7 +44,7 @@ export class ApiKeysService {
    */
   async getUsageStats(userWallet: string) {
     const keys = await this.getUserApiKeys(userWallet);
-    const keyIds = keys.map(k => k.id);
+    const keyIds = keys.map((k) => k.id);
 
     if (keyIds.length === 0) {
       return [];
@@ -66,7 +66,7 @@ export class ApiKeysService {
     });
 
     // Format for Recharts
-    return usage.map(u => ({
+    return usage.map((u) => ({
       date: u.created_at.toISOString().split('T')[0],
       calls: u._count.id,
     }));

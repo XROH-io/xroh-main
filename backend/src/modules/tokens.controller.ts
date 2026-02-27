@@ -31,18 +31,74 @@ interface PriceCache {
   timestamp: number;
 }
 
-let priceCache: PriceCache = { prices: {}, timestamp: 0 };
+const priceCache: PriceCache = { prices: {}, timestamp: 0 };
 const PRICE_CACHE_TTL = 30_000; // 30 seconds
 
 const SUPPORTED_CHAINS: ChainInfo[] = [
-  { id: 'solana', name: 'Solana', icon: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png', chainId: null, nativeToken: 'SOL', color: '#9945FF' },
-  { id: 'ethereum', name: 'Ethereum', icon: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/info/logo.png', chainId: 1, nativeToken: 'ETH', color: '#627EEA' },
-  { id: 'polygon', name: 'Polygon', icon: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/polygon/info/logo.png', chainId: 137, nativeToken: 'MATIC', color: '#8247E5' },
-  { id: 'arbitrum', name: 'Arbitrum', icon: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/arbitrum/info/logo.png', chainId: 42161, nativeToken: 'ETH', color: '#28A0F0' },
-  { id: 'optimism', name: 'Optimism', icon: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/optimism/info/logo.png', chainId: 10, nativeToken: 'ETH', color: '#FF0420' },
-  { id: 'base', name: 'Base', icon: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/base/info/logo.png', chainId: 8453, nativeToken: 'ETH', color: '#0052FF' },
-  { id: 'binance', name: 'BNB Chain', icon: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/binance/info/logo.png', chainId: 56, nativeToken: 'BNB', color: '#F0B90B' },
-  { id: 'avalanche', name: 'Avalanche', icon: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/avalanchec/info/logo.png', chainId: 43114, nativeToken: 'AVAX', color: '#E84142' },
+  {
+    id: 'solana',
+    name: 'Solana',
+    icon: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png',
+    chainId: null,
+    nativeToken: 'SOL',
+    color: '#9945FF',
+  },
+  {
+    id: 'ethereum',
+    name: 'Ethereum',
+    icon: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/info/logo.png',
+    chainId: 1,
+    nativeToken: 'ETH',
+    color: '#627EEA',
+  },
+  {
+    id: 'polygon',
+    name: 'Polygon',
+    icon: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/polygon/info/logo.png',
+    chainId: 137,
+    nativeToken: 'MATIC',
+    color: '#8247E5',
+  },
+  {
+    id: 'arbitrum',
+    name: 'Arbitrum',
+    icon: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/arbitrum/info/logo.png',
+    chainId: 42161,
+    nativeToken: 'ETH',
+    color: '#28A0F0',
+  },
+  {
+    id: 'optimism',
+    name: 'Optimism',
+    icon: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/optimism/info/logo.png',
+    chainId: 10,
+    nativeToken: 'ETH',
+    color: '#FF0420',
+  },
+  {
+    id: 'base',
+    name: 'Base',
+    icon: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/base/info/logo.png',
+    chainId: 8453,
+    nativeToken: 'ETH',
+    color: '#0052FF',
+  },
+  {
+    id: 'binance',
+    name: 'BNB Chain',
+    icon: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/binance/info/logo.png',
+    chainId: 56,
+    nativeToken: 'BNB',
+    color: '#F0B90B',
+  },
+  {
+    id: 'avalanche',
+    name: 'Avalanche',
+    icon: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/avalanchec/info/logo.png',
+    chainId: 43114,
+    nativeToken: 'AVAX',
+    color: '#E84142',
+  },
 ];
 
 const SUPPORTED_TOKENS: TokenInfo[] = [
@@ -105,7 +161,16 @@ const SUPPORTED_TOKENS: TokenInfo[] = [
     address: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
     decimals: 6,
     icon: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png',
-    chains: ['solana', 'ethereum', 'polygon', 'arbitrum', 'optimism', 'base', 'binance', 'avalanche'],
+    chains: [
+      'solana',
+      'ethereum',
+      'polygon',
+      'arbitrum',
+      'optimism',
+      'base',
+      'binance',
+      'avalanche',
+    ],
     coingeckoId: 'usd-coin',
     popular: true,
   },
@@ -115,7 +180,15 @@ const SUPPORTED_TOKENS: TokenInfo[] = [
     address: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
     decimals: 6,
     icon: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB/logo.png',
-    chains: ['solana', 'ethereum', 'polygon', 'arbitrum', 'optimism', 'binance', 'avalanche'],
+    chains: [
+      'solana',
+      'ethereum',
+      'polygon',
+      'arbitrum',
+      'optimism',
+      'binance',
+      'avalanche',
+    ],
     coingeckoId: 'tether',
     popular: true,
   },
@@ -147,7 +220,14 @@ const SUPPORTED_TOKENS: TokenInfo[] = [
     address: '0x514910771AF9Ca656af840dff83E8264EcF986CA',
     decimals: 18,
     icon: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0x514910771AF9Ca656af840dff83E8264EcF986CA/logo.png',
-    chains: ['ethereum', 'polygon', 'arbitrum', 'optimism', 'base', 'avalanche'],
+    chains: [
+      'ethereum',
+      'polygon',
+      'arbitrum',
+      'optimism',
+      'base',
+      'avalanche',
+    ],
     coingeckoId: 'chainlink',
     popular: false,
   },
@@ -244,7 +324,9 @@ export class TokensController {
   @Get()
   getTokens(@Query('chain') chain?: string) {
     if (chain) {
-      return SUPPORTED_TOKENS.filter(t => t.chains.includes(chain.toLowerCase()));
+      return SUPPORTED_TOKENS.filter((t) =>
+        t.chains.includes(chain.toLowerCase()),
+      );
     }
     return SUPPORTED_TOKENS;
   }
@@ -256,9 +338,9 @@ export class TokensController {
 
   @Get('popular')
   getPopularTokens(@Query('chain') chain?: string) {
-    let tokens = SUPPORTED_TOKENS.filter(t => t.popular);
+    let tokens = SUPPORTED_TOKENS.filter((t) => t.popular);
     if (chain) {
-      tokens = tokens.filter(t => t.chains.includes(chain.toLowerCase()));
+      tokens = tokens.filter((t) => t.chains.includes(chain.toLowerCase()));
     }
     return tokens;
   }
@@ -271,13 +353,17 @@ export class TokensController {
   async getPrices(@Query('ids') ids?: string): Promise<Record<string, number>> {
     // Get all unique coingeckoIds from tokens, or use provided ids
     const coingeckoIds = ids
-      ? ids.split(',').map(id => id.trim())
-      : [...new Set(SUPPORTED_TOKENS.map(t => t.coingeckoId))];
+      ? ids.split(',').map((id) => id.trim())
+      : [...new Set(SUPPORTED_TOKENS.map((t) => t.coingeckoId))];
 
     // Check cache
     const now = Date.now();
-    const cachedIds = coingeckoIds.filter(id => priceCache.prices[id] !== undefined);
-    const allCached = cachedIds.length === coingeckoIds.length && (now - priceCache.timestamp) < PRICE_CACHE_TTL;
+    const cachedIds = coingeckoIds.filter(
+      (id) => priceCache.prices[id] !== undefined,
+    );
+    const allCached =
+      cachedIds.length === coingeckoIds.length &&
+      now - priceCache.timestamp < PRICE_CACHE_TTL;
 
     if (allCached) {
       const result: Record<string, number> = {};
@@ -291,17 +377,19 @@ export class TokensController {
     try {
       const idsParam = coingeckoIds.join(',');
       const url = `https://api.coingecko.com/api/v3/simple/price?ids=${idsParam}&vs_currencies=usd`;
-      
+
       this.logger.log(`Fetching prices from CoinGecko for: ${idsParam}`);
-      
+
       const response = await fetch(url, {
         headers: {
-          'Accept': 'application/json',
+          Accept: 'application/json',
         },
       });
 
       if (!response.ok) {
-        this.logger.warn(`CoinGecko API returned ${response.status}, using cached prices`);
+        this.logger.warn(
+          `CoinGecko API returned ${response.status}, using cached prices`,
+        );
         // Return cached prices if available, otherwise return fallback
         if (Object.keys(priceCache.prices).length > 0) {
           const result: Record<string, number> = {};
@@ -314,7 +402,7 @@ export class TokensController {
       }
 
       const data = await response.json();
-      
+
       // Update cache
       const result: Record<string, number> = {};
       for (const id of coingeckoIds) {
@@ -349,14 +437,24 @@ export class TokensController {
     @Query('from') fromId: string,
     @Query('to') toId: string,
     @Query('amount') amount: string,
-  ): Promise<{ estimatedOutput: number; fromPriceUsd: number; toPriceUsd: number; rate: number }> {
+  ): Promise<{
+    estimatedOutput: number;
+    fromPriceUsd: number;
+    toPriceUsd: number;
+    rate: number;
+  }> {
     const prices = await this.getPrices(`${fromId},${toId}`);
     const fromPrice = prices[fromId] || 0;
     const toPrice = prices[toId] || 0;
     const inputAmount = parseFloat(amount) || 0;
 
     if (fromPrice === 0 || toPrice === 0) {
-      return { estimatedOutput: 0, fromPriceUsd: fromPrice, toPriceUsd: toPrice, rate: 0 };
+      return {
+        estimatedOutput: 0,
+        fromPriceUsd: fromPrice,
+        toPriceUsd: toPrice,
+        rate: 0,
+      };
     }
 
     const rate = fromPrice / toPrice;
@@ -375,24 +473,24 @@ export class TokensController {
    */
   private getFallbackPrices(ids: string[]): Record<string, number> {
     const fallback: Record<string, number> = {
-      'ethereum': 3500,
-      'solana': 170,
-      'binancecoin': 600,
+      ethereum: 3500,
+      solana: 170,
+      binancecoin: 600,
       'matic-network': 0.45,
       'avalanche-2': 35,
       'usd-coin': 1,
-      'tether': 1,
-      'dai': 1,
+      tether: 1,
+      dai: 1,
       'wrapped-bitcoin': 95000,
-      'chainlink': 15,
-      'uniswap': 7,
-      'aave': 200,
-      'raydium': 3,
+      chainlink: 15,
+      uniswap: 7,
+      aave: 200,
+      raydium: 3,
       'jupiter-exchange-solana': 0.8,
-      'bonk': 0.000025,
-      'dogwifcoin': 1.5,
-      'arbitrum': 0.7,
-      'optimism': 1.5,
+      bonk: 0.000025,
+      dogwifcoin: 1.5,
+      arbitrum: 0.7,
+      optimism: 1.5,
     };
     const result: Record<string, number> = {};
     for (const id of ids) {

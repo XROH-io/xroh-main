@@ -101,7 +101,7 @@ export class NormalizedRouteDto {
   @ApiProperty({ example: 0.85 })
   liquidity_score: number;
 
-  @ApiProperty({ 
+  @ApiProperty({
     example: {
       route_id: '550e8400-e29b-41d4-a716-446655440000',
       fee_score: 85.5,
@@ -110,8 +110,9 @@ export class NormalizedRouteDto {
       slippage_score: 100.0,
       liquidity_score: 85.0,
       total_score: 88.4,
-      explanation: 'Very competitive fees. Fast execution time. Highly reliable provider. Low slippage risk'
-    }
+      explanation:
+        'Very competitive fees. Fast execution time. Highly reliable provider. Low slippage risk',
+    },
   })
   score?: RouteScore;
 

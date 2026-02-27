@@ -9,7 +9,10 @@ import { LifiService } from './lifi/lifi.service';
 import { MayanService } from './mayan/mayan.service';
 import { ChangenowService } from './changenow/changenow.service';
 import { PrismaService } from '../../config/prisma.service';
-import { ProviderConnector, ProviderHealthStatus } from '../../common/interfaces';
+import {
+  ProviderConnector,
+  ProviderHealthStatus,
+} from '../../common/interfaces';
 
 @Injectable()
 export class ProviderHealthService {
@@ -89,9 +92,7 @@ export class ProviderHealthService {
           is_healthy: health.is_healthy,
           health_check_last_run: health.last_checked,
           average_response_time_ms: health.response_time_ms,
-          consecutive_failures: health.is_healthy
-            ? 0
-            : { increment: 1 },
+          consecutive_failures: health.is_healthy ? 0 : { increment: 1 },
         },
       });
     } catch (error) {

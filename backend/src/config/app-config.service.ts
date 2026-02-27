@@ -64,7 +64,9 @@ export class AppConfigService {
           'SOLANA_RPC_DEVNET',
           'https://api.devnet.solana.com',
         ),
-        heliusApiKey: this.configService.get<string>('SOLANA_RPC_HELIUS_API_KEY'),
+        heliusApiKey: this.configService.get<string>(
+          'SOLANA_RPC_HELIUS_API_KEY',
+        ),
       },
       ethereum: this.configService.get<string>('ETHEREUM_RPC_URL'),
       polygon: this.configService.get<string>('POLYGON_RPC_URL'),
@@ -163,7 +165,10 @@ export class AppConfigService {
   // Feature Flags
   getFeatureFlags() {
     return {
-      autoFailover: this.configService.get<boolean>('ENABLE_AUTO_FAILOVER', true),
+      autoFailover: this.configService.get<boolean>(
+        'ENABLE_AUTO_FAILOVER',
+        true,
+      ),
       portfolioAnalysis: this.configService.get<boolean>(
         'ENABLE_PORTFOLIO_ANALYSIS',
         true,

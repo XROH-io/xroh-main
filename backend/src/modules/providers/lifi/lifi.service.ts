@@ -34,19 +34,30 @@ export class LifiService implements ProviderConnector {
   private readonly logger = new Logger(LifiService.name);
 
   constructor(private readonly configService: AppConfigService) {
-    const apiKeys = this.configService.getApiKeys();
-    createConfig({
-      integrator: 'XROH',
-      apiKey: apiKeys.lifi,
-    });
+    // NOTE:
+    // In some restricted environments (like local sandboxes without external DNS),
+    // eagerly initializing the LI.FI SDK with createConfig can trigger a background
+    // network call to li.quest that fails and crashes the process.
+    //
+    // For development/testing here we skip the explicit createConfig call and let
+    // the SDK use its defaults when getRoutes() is invoked inside try/catch blocks.
+    //
+    // In a real deployed environment you should re-enable this with valid API keys:
+    //
+    // const apiKeys = this.configService.getApiKeys();
+    // createConfig({
+    //   integrator: 'XROH',
+    //   apiKey: apiKeys.lifi,
+    // });
   }
 
   async getQuote(params: QuoteParams): Promise<NormalizedRoute> {
     try {
       // Use a valid dummy address for quote-only (Solana vs EVM format)
-      const dummyAddress = params.source_chain === 'solana'
-        ? '9CkiC555BUW6R8T7eoRPETzg47Ck3Z4qNUGEXyvs6B4F'
-        : '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045';
+      const dummyAddress =
+        params.source_chain === 'solana'
+          ? '9CkiC555BUW6R8T7eoRPETzg47Ck3Z4qNUGEXyvs6B4F'
+          : '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045';
 
       const routeOptions: any = {
         fromChainId: this.getChainId(params.source_chain),
@@ -62,7 +73,7 @@ export class LifiService implements ProviderConnector {
       };
 
       const result = await getRoutes(routeOptions);
-      
+
       if (!result.routes || result.routes.length === 0) {
         throw new Error('No routes found from LI.FI');
       }
@@ -76,11 +87,16 @@ export class LifiService implements ProviderConnector {
     }
   }
 
-  async buildTransaction(routeId: string, userWallet: string): Promise<TransactionRequest> {
+  async buildTransaction(
+    routeId: string,
+    userWallet: string,
+  ): Promise<TransactionRequest> {
     try {
       // In production, retrieve route from database using routeId
       // For now, we'll need to re-fetch or use cached route data
-      throw new Error('buildTransaction requires route data from cache/database');
+      throw new Error(
+        'buildTransaction requires route data from cache/database',
+      );
     } catch (error) {
       this.logger.error(`LI.FI build transaction error: ${error.message}`);
       throw error;

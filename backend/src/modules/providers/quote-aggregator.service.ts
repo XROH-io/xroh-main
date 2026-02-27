@@ -7,7 +7,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { LifiService } from './lifi/lifi.service';
 import { MayanService } from './mayan/mayan.service';
 import { ChangenowService } from './changenow/changenow.service';
-import { NormalizedRoute, QuoteParams, ProviderConnector } from '../../common/interfaces';
+import {
+  NormalizedRoute,
+  QuoteParams,
+  ProviderConnector,
+} from '../../common/interfaces';
 import { RedisService } from '../../config/redis.service';
 
 interface AggregatedQuoteResult {
@@ -70,7 +74,10 @@ export class QuoteAggregatorService {
       } else {
         // Handles both: rejected promises AND fulfilled-with-null (caught errors inside fetchQuoteWithTimeout)
         providerStatuses[providerName] = 'failed';
-        const reason = result.status === 'rejected' ? result.reason?.message : 'No route returned';
+        const reason =
+          result.status === 'rejected'
+            ? result.reason?.message
+            : 'No route returned';
         this.logger.warn(`${providerName}: ${reason || 'Unknown error'}`);
       }
     });
@@ -105,8 +112,12 @@ export class QuoteAggregatorService {
   ): Promise<NormalizedRoute | null> {
     try {
       // Check if provider supports this route
-      if (!provider.supportsRoute(params.source_chain, params.destination_chain)) {
-        throw new Error(`Provider ${provider.name} does not support this route`);
+      if (
+        !provider.supportsRoute(params.source_chain, params.destination_chain)
+      ) {
+        throw new Error(
+          `Provider ${provider.name} does not support this route`,
+        );
       }
 
       const timeoutPromise = new Promise<null>((_, reject) =>
@@ -117,9 +128,7 @@ export class QuoteAggregatorService {
 
       return await Promise.race([quotePromise, timeoutPromise]);
     } catch (error) {
-      this.logger.error(
-        `Provider ${provider.name} failed: ${error.message}`,
-      );
+      this.logger.error(`Provider ${provider.name} failed: ${error.message}`);
       return null;
     }
   }
@@ -130,7 +139,9 @@ export class QuoteAggregatorService {
       const outputAmount = parseFloat(route.output_amount);
 
       if (isNaN(outputAmount) || outputAmount <= 0) {
-        this.logger.warn(`Invalid route ${route.route_id}: output amount is zero or invalid`);
+        this.logger.warn(
+          `Invalid route ${route.route_id}: output amount is zero or invalid`,
+        );
         return false;
       }
 
@@ -153,7 +164,9 @@ export class QuoteAggregatorService {
     return `quote:${params.source_chain}:${params.destination_chain}:${params.source_token}:${params.destination_token}:${params.amount}`;
   }
 
-  private async getCachedQuotes(key: string): Promise<AggregatedQuoteResult | null> {
+  private async getCachedQuotes(
+    key: string,
+  ): Promise<AggregatedQuoteResult | null> {
     try {
       const cached = await this.redisService.getJson(key);
       return cached as AggregatedQuoteResult;
@@ -162,7 +175,10 @@ export class QuoteAggregatorService {
     }
   }
 
-  private async cacheQuotes(key: string, result: AggregatedQuoteResult): Promise<void> {
+  private async cacheQuotes(
+    key: string,
+    result: AggregatedQuoteResult,
+  ): Promise<void> {
     try {
       // Cache for 30 seconds
       await this.redisService.setJson(key, result, 30);

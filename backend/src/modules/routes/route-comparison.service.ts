@@ -131,7 +131,10 @@ export class RouteComparisonService {
   /**
    * Get backup/alternative routes
    */
-  getBackupRoutes(rankedRoutes: RankedRoute[], count: number = 2): RankedRoute[] {
+  getBackupRoutes(
+    rankedRoutes: RankedRoute[],
+    count: number = 2,
+  ): RankedRoute[] {
     return rankedRoutes.slice(1, count + 1);
   }
 

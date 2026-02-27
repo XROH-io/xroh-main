@@ -20,17 +20,17 @@ export interface ScoringWeights {
  */
 export interface RouteScore {
   route_id: string;
-  
+
   // Individual scores (0-100)
   fee_score: number;
   speed_score: number;
   reliability_score: number;
   slippage_score: number;
   liquidity_score: number;
-  
+
   // Total weighted score
   total_score: number;
-  
+
   // Human-readable explanation
   explanation: string;
 }
@@ -70,7 +70,7 @@ export interface StrategyConstraints {
 /**
  * Available strategy templates
  */
-export type StrategyType = 
+export type StrategyType =
   | 'lowest_cost'
   | 'fast_execution'
   | 'safety_first'

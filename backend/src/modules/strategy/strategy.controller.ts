@@ -28,7 +28,7 @@ export class StrategyController {
   @Get(':strategy')
   getStrategy(@Param('strategy') strategy: string) {
     const strategyTemplate = this.strategyService.getStrategy(strategy as any);
-    
+
     if (!strategyTemplate) {
       return {
         error: 'Strategy not found',
@@ -49,11 +49,12 @@ export class StrategyController {
   async saveCustomStrategy(@Body() dto: SaveStrategyDto) {
     try {
       const isValid = this.strategyService.validateWeights(dto.weights);
-      
+
       if (!isValid) {
         return {
           success: false,
-          error: 'Invalid weights. Weights must sum to 1.0 and be between 0 and 1',
+          error:
+            'Invalid weights. Weights must sum to 1.0 and be between 0 and 1',
         };
       }
 

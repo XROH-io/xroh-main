@@ -10,37 +10,37 @@
 export interface NormalizedRoute {
   route_id: string;
   provider: 'lifi' | 'mayan' | 'changenow';
-  
+
   // Chain and token information
   source_chain: string;
   destination_chain: string;
   source_token: string;
   destination_token: string;
-  
+
   // Amounts (in smallest unit - wei/lamports)
   input_amount: string;
   output_amount: string;
-  
+
   // Fee breakdown
   total_fee: RouteFee;
-  
+
   // Timing
   estimated_time: number; // seconds
-  
+
   // Risk metrics
   slippage_tolerance: number;
   slippage_risk: 'low' | 'medium' | 'high';
-  
+
   // Route details
   steps: RouteStep[];
-  
+
   // Scoring
   reliability_score: number; // 0-100
   liquidity_score: number; // 0-100
-  
+
   // Raw data for debugging
   raw_provider_data: any;
-  
+
   // Metadata
   created_at?: Date;
   expires_at?: Date;

@@ -22,10 +22,11 @@ export const validationSchema = Joi.object({
   DATABASE_POOL_MAX: Joi.number().default(10),
 
   // Redis
-  REDIS_URL: Joi.string().optional(),
+  REDIS_URL: Joi.string().allow('').optional(),
   REDIS_HOST: Joi.string().default('localhost'),
   REDIS_PORT: Joi.number().default(6379),
   REDIS_PASSWORD: Joi.string().allow('').optional(),
+  REDIS_USERNAME: Joi.string().allow('').optional(),
   REDIS_DB: Joi.number().default(0),
 
   // RPC Endpoints

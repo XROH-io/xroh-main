@@ -4,7 +4,11 @@
  */
 
 import { Injectable, Logger } from '@nestjs/common';
-import { NormalizedRoute, ScoringWeights, RouteScore } from '../../common/interfaces';
+import {
+  NormalizedRoute,
+  ScoringWeights,
+  RouteScore,
+} from '../../common/interfaces';
 import { PrismaService } from '../../config/prisma.service';
 
 @Injectable()
@@ -108,9 +112,10 @@ export class ScoringService {
     route: NormalizedRoute,
   ): Promise<number> {
     try {
-      const providerMetrics = await this.prismaService.providerReliability.findUnique({
-        where: { provider: route.provider },
-      });
+      const providerMetrics =
+        await this.prismaService.providerReliability.findUnique({
+          where: { provider: route.provider },
+        });
 
       if (!providerMetrics) {
         return route.reliability_score;

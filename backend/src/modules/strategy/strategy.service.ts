@@ -4,14 +4,21 @@
  */
 
 import { Injectable, Logger } from '@nestjs/common';
-import { ScoringWeights, StrategyTemplate, StrategyType } from '../../common/interfaces';
+import {
+  ScoringWeights,
+  StrategyTemplate,
+  StrategyType,
+} from '../../common/interfaces';
 import { PrismaService } from '../../config/prisma.service';
 
 @Injectable()
 export class StrategyService {
   private readonly logger = new Logger(StrategyService.name);
 
-  private readonly predefinedStrategies: Record<StrategyType, StrategyTemplate> = {
+  private readonly predefinedStrategies: Record<
+    StrategyType,
+    StrategyTemplate
+  > = {
     lowest_cost: {
       name: 'Lowest Cost',
       description: 'Prioritizes routes with the lowest fees',
