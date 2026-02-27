@@ -90,18 +90,22 @@ export class QuotesController {
       throw new HttpException('amount must be greater than 0', HttpStatus.BAD_REQUEST);
     }
 
-    // Resolve currency tickers from token addresses using the same mapping as getQuote
+    // Resolve currency tickers and ChangeNOW network identifiers
     const fromCurrency = this.resolveCurrency(body.source_token, body.source_chain);
     const toCurrency = this.resolveCurrency(body.destination_token, body.destination_chain);
+    const fromNetwork = this.resolveNetwork(body.source_chain);
+    const toNetwork = this.resolveNetwork(body.destination_chain);
 
     this.logger.log(
-      `Creating exchange: ${body.amount} ${fromCurrency} → ${toCurrency}, payout: ${body.payout_address}`,
+      `Creating exchange: ${body.amount} ${fromCurrency} (${fromNetwork}) → ${toCurrency} (${toNetwork}), payout: ${body.payout_address}`,
     );
 
     try {
       const exchange = await this.changenowService.createExchange({
         fromCurrency,
         toCurrency,
+        fromNetwork,
+        toNetwork,
         fromAmount: body.amount,
         payoutAddress: body.payout_address,
       });
@@ -152,6 +156,22 @@ export class QuotesController {
         HttpStatus.BAD_GATEWAY,
       );
     }
+  }
+
+  /** Map internal chain name to ChangeNOW network identifier */
+  private resolveNetwork(chain: string): string {
+    const networkMap: Record<string, string> = {
+      solana: 'sol',
+      ethereum: 'eth',
+      polygon: 'matic',
+      arbitrum: 'arbitrum',
+      binance: 'bsc',
+      bsc: 'bsc',
+      avalanche: 'avaxc',
+      optimism: 'op',
+      base: 'base',
+    };
+    return networkMap[chain?.toLowerCase()] ?? chain?.toLowerCase() ?? '';
   }
 
   /** Map token address/symbol to ChangeNOW currency ticker */

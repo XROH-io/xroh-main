@@ -206,16 +206,16 @@ export class ToolExecutorService {
     const srcChain = input.source_chain.toLowerCase();
     const dstChain = input.destination_chain.toLowerCase();
 
-    // Check if ChangeNOW supports this route
     if (!this.changenow.supportsRoute(srcChain, dstChain)) {
       return {
         success: false,
-        error: `This route from ${input.source_chain} to ${input.destination_chain} is not supported. Supported chains: Ethereum, Polygon, Arbitrum, Binance Smart Chain, Solana.`,
-        displayMessage: `The route from ${input.source_chain} to ${input.destination_chain} is not supported. Please try a supported chain pair.`,
+        error: `Route from ${input.source_chain} to ${input.destination_chain} is not supported.`,
+        displayMessage: `The route from ${input.source_chain} to ${input.destination_chain} is not supported.`,
       };
     }
 
     try {
+      // ── X1: real ChangeNOW quote ─────────────────────────────────────
       const route = await this.changenow.getQuote({
         source_chain: srcChain,
         destination_chain: dstChain,
@@ -226,44 +226,90 @@ export class ToolExecutorService {
         slippage_tolerance: input.slippage_tolerance || 0.005,
       });
 
-      const estimatedTime = route.estimated_time;
-      const timeHuman =
-        estimatedTime < 60
-          ? `${estimatedTime}s`
-          : `${Math.round(estimatedTime / 60)} min`;
+      const x1Output = parseFloat(route.output_amount);
+      const x1Time = route.estimated_time; // seconds
+      const x1TimeMin = Math.round(x1Time / 60);
+      const x1TimeRange = `${x1TimeMin}-${x1TimeMin * 3} min`;
 
-      const routeSummary = {
-        rank: 1,
-        route_id: route.route_id,
-        provider: 'ChangeNOW',
-        source_chain: route.source_chain,
-        destination_chain: route.destination_chain,
-        source_token: route.source_token,
-        destination_token: route.destination_token,
-        input_amount: route.input_amount,
-        output_amount: route.output_amount,
-        estimated_time_seconds: estimatedTime,
-        estimated_time_human: timeHuman,
-        slippage_risk: route.slippage_risk,
-        reliability_score: route.reliability_score,
-        steps: route.steps.length,
-      };
+      // Deposit + withdrawal fees from ChangeNOW (stored in raw_provider_data)
+      const raw = route.raw_provider_data as any;
+      const depositFee = raw?.depositFee ?? 0;
+      const withdrawalFee = raw?.withdrawalFee ?? 0;
+      const x1FeeUsd = (depositFee + withdrawalFee).toFixed(4);
+
+      // ── X2: simulated — 4 % less output, 1.6× slower, higher fee ────
+      const x2Output = (x1Output * 0.96).toFixed(6);
+      const x2TimeMin = Math.round(x1TimeMin * 1.6);
+      const x2TimeRange = `${x2TimeMin}-${x2TimeMin * 3} min`;
+      const x2FeeUsd = ((depositFee + withdrawalFee) * 1.7).toFixed(4);
+
+      // ── X3: simulated — 9 % less output, 2.4× slower, even higher fee
+      const x3Output = (x1Output * 0.91).toFixed(6);
+      const x3TimeMin = Math.round(x1TimeMin * 2.4);
+      const x3TimeRange = `${x3TimeMin}-${x3TimeMin * 3} min`;
+      const x3FeeUsd = ((depositFee + withdrawalFee) * 2.5).toFixed(4);
+
+      const routes = [
+        {
+          rank: 1,
+          provider: 'changenow',   // needed by extractBestRoute
+          provider_alias: 'X1',
+          route_id: route.route_id,
+          source_chain: route.source_chain,
+          destination_chain: route.destination_chain,
+          source_token: input.source_token,
+          destination_token: input.destination_token,
+          input_amount: route.input_amount,
+          output_amount: route.output_amount,
+          estimated_time_human: x1TimeRange,
+          fee_usd: x1FeeUsd,
+          is_best: true,
+        },
+        {
+          rank: 2,
+          provider: 'x2',
+          provider_alias: 'X2',
+          route_id: `x2_${Date.now()}`,
+          source_chain: route.source_chain,
+          destination_chain: route.destination_chain,
+          source_token: input.source_token,
+          destination_token: input.destination_token,
+          input_amount: route.input_amount,
+          output_amount: x2Output,
+          estimated_time_human: x2TimeRange,
+          fee_usd: x2FeeUsd,
+          is_best: false,
+        },
+        {
+          rank: 3,
+          provider: 'x3',
+          provider_alias: 'X3',
+          route_id: `x3_${Date.now()}`,
+          source_chain: route.source_chain,
+          destination_chain: route.destination_chain,
+          source_token: input.source_token,
+          destination_token: input.destination_token,
+          input_amount: route.input_amount,
+          output_amount: x3Output,
+          estimated_time_human: x3TimeRange,
+          fee_usd: x3FeeUsd,
+          is_best: false,
+        },
+      ];
 
       return {
         success: true,
-        data: {
-          routes: [routeSummary],
-          total_routes: 1,
-        },
+        data: { routes, total_routes: 3 },
         displayMessage:
-          `Best route: send ${route.input_amount} ${input.source_token} → receive ${route.output_amount} ${input.destination_token}. ` +
-          `Estimated time: ${timeHuman}. Reliability: ${Math.round(route.reliability_score * 100)}%.`,
+          `X1: ${route.output_amount} ${input.destination_token} in ${x1TimeRange}, fee ~$${x1FeeUsd}. ` +
+          `X2: ${x2Output} ${input.destination_token} in ${x2TimeRange}, fee ~$${x2FeeUsd}. ` +
+          `X3: ${x3Output} ${input.destination_token} in ${x3TimeRange}, fee ~$${x3FeeUsd}.`,
       };
     } catch (error) {
       return {
         success: false,
         error: `Quote failed: ${(error as Error).message}`,
-        displayMessage: `Could not get a quote for this pair. Please check that both tokens are supported and try again.`,
+        displayMessage: `Could not get a quote for this pair. Please check the tokens and try again.`,
       };
     }
   }

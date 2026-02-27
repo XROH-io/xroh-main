@@ -79,13 +79,17 @@ export class ChangenowService implements ProviderConnector {
         params.destination_token,
         params.destination_chain,
       );
+      const fromNetwork = this.mapChainToNetwork(params.source_chain);
+      const toNetwork = this.mapChainToNetwork(params.destination_chain);
 
       const response = await this.client.get<ChangeNowEstimate>(
         `/exchange/estimated-amount`,
         {
           params: {
             fromCurrency,
+            fromNetwork,
             toCurrency,
+            toNetwork,
             fromAmount: this.formatAmount(params.amount, params.source_chain),
             flow: 'standard',
           },
@@ -119,6 +123,8 @@ export class ChangenowService implements ProviderConnector {
   async createExchange(params: {
     fromCurrency: string;
     toCurrency: string;
+    fromNetwork?: string;
+    toNetwork?: string;
     fromAmount: string;
     payoutAddress: string;
   }): Promise<{
@@ -132,13 +138,15 @@ export class ChangenowService implements ProviderConnector {
     status: string;
     validUntil?: string;
   }> {
-    const body = {
+    const body: Record<string, string> = {
       fromCurrency: params.fromCurrency,
       toCurrency: params.toCurrency,
       fromAmount: params.fromAmount,
       address: params.payoutAddress,
       flow: 'standard',
     };
+    if (params.fromNetwork) body.fromNetwork = params.fromNetwork;
+    if (params.toNetwork) body.toNetwork = params.toNetwork;
 
     this.logger.log(
       `Creating ChangeNOW exchange: ${params.fromAmount} ${params.fromCurrency} → ${params.toCurrency} to ${params.payoutAddress}`,
@@ -337,6 +345,25 @@ export class ChangenowService implements ProviderConnector {
       expired: 'timeout',
     };
     return statusMap[changenowStatus] || 'pending';
+  }
+
+  /**
+   * Maps internal chain names to ChangeNOW network identifiers.
+   * Required when a currency ticker exists on multiple networks (e.g. usdc on sol, eth, matic…).
+   */
+  private mapChainToNetwork(chain: string): string {
+    const networkMap: Record<string, string> = {
+      solana: 'sol',
+      ethereum: 'eth',
+      polygon: 'matic',
+      arbitrum: 'arbitrum',
+      binance: 'bsc',
+      bsc: 'bsc',
+      avalanche: 'avaxc',
+      optimism: 'op',
+      base: 'base',
+    };
+    return networkMap[chain.toLowerCase()] ?? chain.toLowerCase();
   }
 
   private mapTokenToCurrency(token: string, chain: string): string {

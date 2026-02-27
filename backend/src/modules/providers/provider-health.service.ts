@@ -78,6 +78,8 @@ export class ProviderHealthService {
     );
   }
 
+  private dbUnreachableLogged = false;
+
   private async updateReliabilityMetrics(health: ProviderHealthStatus) {
     try {
       await this.prismaService.providerReliability.upsert({
@@ -95,10 +97,20 @@ export class ProviderHealthService {
           consecutive_failures: health.is_healthy ? 0 : { increment: 1 },
         },
       });
+      // Reset flag once DB becomes reachable again
+      this.dbUnreachableLogged = false;
     } catch (error) {
-      this.logger.error(
-        `Failed to update reliability metrics: ${error.message}`,
-      );
+      // Log only once until DB recovers — avoids log spam on every cron tick
+      if (!this.dbUnreachableLogged) {
+        this.logger.warn(
+          `DB unreachable — provider reliability metrics will not persist until reconnected: ${error.message}`,
+        );
+        this.dbUnreachableLogged = true;
+      } else {
+        this.logger.debug(
+          `Skipping reliability upsert — DB still unreachable (${health.provider})`,
+        );
+      }
     }
   }
 }
